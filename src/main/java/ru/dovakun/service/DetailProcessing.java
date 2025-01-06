@@ -8,19 +8,19 @@ import java.util.stream.Collectors;
 
 public class DetailProcessing {
     public static Double time = 0.0;
-    private static Boolean start = true;
     private final List<Worker> workers = new ArrayList<>();
+    CSVWriter writer = new CSVWriter();
 
     public void startProcessing() throws IOException {
         XmlReader xmlReader = new XmlReader();
-
+        writer.writeHeader();
         List<ProductionCenter> productionCenters = xmlReader.parseXmlPC();
         List<Connection> connections = xmlReader.parseXmlConnection(productionCenters);
         Scenario scenario = xmlReader.parseXmlScenario();
 
         findChildrenForPC(connections, productionCenters);
         findMainPC(connections, productionCenters, scenario);
-
+        findFinalPC(productionCenters);
 
         for (int i = 0; i < scenario.getWorkersCount(); i++) {
             Worker worker = new Worker();
@@ -32,9 +32,16 @@ public class DetailProcessing {
             findWork(workers, productionCenters);
             detailProcess(productionCenters);
             for (ProductionCenter productionCenter : productionCenters) {
-                System.out.println(productionCenter);
+                writer.writeToCSV(productionCenter, time);
             }
-//            System.out.println(time + "\n");
+            System.out.println(time);
+            int countDetail = 0;
+            for (ProductionCenter productionCenter : productionCenters) {
+                countDetail += productionCenter.getDetails().size();
+            }
+            if (countDetail == 0) {
+                start = false;
+            }
         }
 
 
@@ -42,50 +49,45 @@ public class DetailProcessing {
 
     private void detailProcess(List<ProductionCenter> productionCenters) {
         time++;
-        try {
-            for (ProductionCenter productionCenter : productionCenters) {
-
-                int countWorker = productionCenter.getWorkers().size();
-                if (!productionCenter.getDetails().isEmpty())
-                    for (int i = 0; i < countWorker; i++) {
-                        Detail detail = productionCenter.getDetails().get(i);
-                        double percent = detail.getPercent();
-                        percent = percent + 1 / productionCenter.getPerformance();
-                        detail.setPercent(percent);
-                        if (percent >= 1) {
-                            double newPercent = 1 - percent;
-                            try {
-                                Detail newDetail = productionCenter.getDetails().get(countWorker + i);
-                                if (newDetail != null) {
-                                    detail.setPercent(0.0);
-                                    newDetail.setPercent(newPercent);
-                                    ProductionCenter productionCenterChildren = findPCWithMinEff(productionCenter.getChildren());
-                                    productionCenterChildren.getDetails().add(detail);
-                                    productionCenter.getDetails().remove(detail);
-                                    productionCenter.setBuffer(productionCenter.getBuffer() - 1);
-                                    findWork(workers, productionCenters);
-                                }
-                            } catch (IndexOutOfBoundsException e) {
-                                System.out.println("На " + productionCenter.getName() + " закончились детали!");
-                                if (!productionCenter.getChildren().isEmpty()) {
-                                    ProductionCenter productionCenterChildren = findPCWithMinEff(productionCenter.getChildren());
-                                    productionCenterChildren.getDetails().add(detail);
-                                    productionCenter.getDetails().remove(detail);
-                                    productionCenter.setBuffer(productionCenter.getBuffer() - 1);
-                                    productionCenterChildren.setBuffer(productionCenterChildren.getBuffer() + 1);
-                                    findWork(workers, productionCenters);
-                                } else {
-                                    productionCenter.setBuffer(productionCenter.getBuffer() - 1);
-                                    productionCenter.getDetails().remove(detail);
-                                }
-
+        for (ProductionCenter productionCenter : productionCenters) {
+            productionCenter.setBuffer(productionCenter.getDetails().size());
+            List<Detail> details = productionCenter.getDetails();
+            int countWorker = productionCenter.getWorkers().size();
+            for (int i = 0; i < countWorker && i < details.size(); i++) {
+                Optional<Detail> detail = Optional.ofNullable(productionCenter.getDetails().get(i));
+                if (detail.isPresent()) {
+                    double percent = detail.get().getPercent();
+                    percent = percent + 1 / productionCenter.getPerformance();
+                    detail.get().setPercent(percent);
+                    if (percent >= 1) {
+                        findWork(workers, productionCenters);
+                        Optional<Detail> detail1 = Optional.empty();
+                        if (i + countWorker < productionCenter.getDetails().size()) {
+                            detail1 = Optional.ofNullable(productionCenter.getDetails().get(i + countWorker));
+                        }
+                        if (detail1.isPresent()) {
+                            detail.get().setPercent(0.0);
+                            detail1.get().setPercent(percent-1);
+                            if (!productionCenter.getFinal()) {
+                                ProductionCenter productionCenterChildren = findPCWithMinEff(productionCenter.getChildren());
+                                productionCenterChildren.getDetails().add(detail.get());
                             }
-
+                            productionCenter.getDetails().remove(detail.get());
+                            countWorker--;
+                            i--;
+                            productionCenter.setBuffer(productionCenter.getDetails().size());
+                        }else {
+                            detail.get().setPercent(0.0);
+                            if (!productionCenter.getFinal()) {
+                                ProductionCenter productionCenterChildren = findPCWithMinEff(productionCenter.getChildren());
+                                productionCenterChildren.getDetails().add(detail.get());
+                            }
+                            productionCenter.getDetails().remove(detail.get());
+                            productionCenter.setBuffer(productionCenter.getDetails().size());
                         }
                     }
+                }
             }
-        } catch (IndexOutOfBoundsException ignored) {
-
         }
     }
 
@@ -155,6 +157,14 @@ public void findChildrenForPC(List<Connection> connections, List<ProductionCente
     }
 }
 
+
+public void findFinalPC(List<ProductionCenter> productionCenters) {
+    for (ProductionCenter productionCenter : productionCenters) {
+        if (productionCenter.getChildren().isEmpty()) {
+            productionCenter.setFinal(true);
+        }
+    }
+}
 public void findMainPC(List<Connection> connections, List<ProductionCenter> productionCenters, Scenario scenario) {
     Set<ProductionCenter> set = new HashSet<>();
     List<Detail> details = new ArrayList<>();

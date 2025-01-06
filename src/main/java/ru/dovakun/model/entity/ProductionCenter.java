@@ -13,6 +13,7 @@ public class ProductionCenter {
     private List<ProductionCenter> children;
     private Boolean isMain = false;
     private List<Worker> workers = new ArrayList<>();
+    private Boolean isFinal = false;
 
     public List<Worker> getWorkers() {
         return workers;
@@ -104,5 +105,13 @@ public class ProductionCenter {
 
     public void setDetails(List<Detail> details) {
         this.details = details;
+    }
+
+    public Boolean getFinal() {
+        return isFinal;
+    }
+
+    public void setFinal(Boolean aFinal) {
+        isFinal = aFinal;
     }
 }
