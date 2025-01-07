@@ -11,9 +11,9 @@ public class DetailProcessing {
     private final List<Worker> workers = new ArrayList<>();
     CSVWriter writer = new CSVWriter();
 
-    public void startProcessing() throws IOException {
-        XmlReader xmlReader = new XmlReader();
-        writer.writeHeader();
+    public void startProcessing(String filePathXML, String filePathCSV) throws IOException {
+        XmlReader xmlReader = new XmlReader(filePathXML);
+        writer.writeHeader(filePathCSV);
         List<ProductionCenter> productionCenters = xmlReader.parseXmlPC();
         List<Connection> connections = xmlReader.parseXmlConnection(productionCenters);
         Scenario scenario = xmlReader.parseXmlScenario();
@@ -32,7 +32,7 @@ public class DetailProcessing {
             findWork(workers, productionCenters);
             detailProcess(productionCenters);
             for (ProductionCenter productionCenter : productionCenters) {
-                writer.writeToCSV(productionCenter, time);
+                writer.writeToCSV(productionCenter, time, filePathCSV);
             }
             System.out.println(time);
             int countDetail = 0;

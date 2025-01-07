@@ -16,7 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class XmlReader {
-    public String filePath = "C:\\Users\\pante\\Downloads\\untitled4\\pc\\src\\main\\resources\\тестовый сценарий №1 3 сотрудников.xlsx";
+    public String filePath ;
+
+    public XmlReader(String filePath) {
+        this.filePath = filePath;
+    }
 
     public List<ProductionCenter> parseXmlPC() throws IOException {
         List<ProductionCenter> productionCenters = new ArrayList<ProductionCenter>();
